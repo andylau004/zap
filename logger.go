@@ -30,9 +30,9 @@ var _exit = os.Exit
 
 // A Logger enables leveled, structured logging. All methods are safe for
 // concurrent use.
-type Logger interface {
+type Facility interface {
 	// Create a child logger, and optionally add some context to that logger.
-	With(...Field) Logger
+	With(...Field) Facility
 
 	// Check returns a CheckedMessage if logging a message at the specified level
 	// is enabled. It's a completely optional optimization; in high-performance
@@ -66,13 +66,13 @@ type logger struct{ Meta }
 //
 // Options can change the log level, the output location, the initial fields
 // that should be added as context, and many other behaviors.
-func New(enc Encoder, options ...Option) Logger {
+func New(enc Encoder, options ...Option) Facility {
 	return &logger{
 		Meta: MakeMeta(enc, options...),
 	}
 }
 
-func (log *logger) With(fields ...Field) Logger {
+func (log *logger) With(fields ...Field) Facility {
 	clone := &logger{
 		Meta: log.Meta.Clone(),
 	}

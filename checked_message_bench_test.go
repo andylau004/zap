@@ -26,8 +26,8 @@ import (
 	"github.com/uber-go/atomic"
 )
 
-func benchmarkLoggers(levels []Level, options ...Option) []Logger {
-	logs := make([]Logger, len(levels))
+func benchmarkLoggers(levels []Level, options ...Option) []Facility {
+	logs := make([]Facility, len(levels))
 	for i, lvl := range levels {
 		logs[i] = New(NullEncoder(), append([]Option{lvl}, options...)...)
 	}
@@ -79,7 +79,7 @@ func BenchmarkCheckedMessage_Chain_sliceLoggers(b *testing.B) {
 		{ErrorLevel, "hey!"},
 	}
 	runIndexedPara(b, func(pb *testing.PB, j int) {
-		myLogs := make([]Logger, len(logs))
+		myLogs := make([]Facility, len(logs))
 		for i, log := range logs {
 			myLogs[i] = log.With(Int("p", j))
 		}

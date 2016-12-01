@@ -37,7 +37,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newHandler() (AtomicLevel, Logger) {
+func newHandler() (AtomicLevel, Facility) {
 	lvl := DynamicLevel()
 	logger, _ := spy.New(lvl)
 	return lvl, logger

@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func withTextLogger(t testing.TB, opts []Option, f func(Logger, *testBuffer)) {
+func withTextLogger(t testing.TB, opts []Option, f func(Facility, *testBuffer)) {
 	sink := &testBuffer{}
 	errSink := &testBuffer{}
 
@@ -40,7 +40,7 @@ func withTextLogger(t testing.TB, opts []Option, f func(Logger, *testBuffer)) {
 }
 
 func TestTextLoggerDebugLevel(t *testing.T) {
-	withTextLogger(t, nil, func(logger Logger, buf *testBuffer) {
+	withTextLogger(t, nil, func(logger Facility, buf *testBuffer) {
 		logger.Log(DebugLevel, "foo")
 		assert.Equal(t, "[D] foo", buf.Stripped(), "Unexpected output from logger")
 	})
@@ -53,7 +53,7 @@ func TestTextLoggerNestedMarshal(t *testing.T) {
 		return nil
 	})
 
-	withTextLogger(t, nil, func(logger Logger, buf *testBuffer) {
+	withTextLogger(t, nil, func(logger Facility, buf *testBuffer) {
 		logger.Info("Fields", String("f1", "{"), Marshaler("m", m))
 		assert.Equal(t, "[I] Fields f1={ m={loggable=yes number=1}", buf.Stripped(), "Unexpected output from logger")
 	})
@@ -61,7 +61,7 @@ func TestTextLoggerNestedMarshal(t *testing.T) {
 
 func TestTextLoggerAddMarshalEmpty(t *testing.T) {
 	empty := LogMarshalerFunc(func(_ KeyValue) error { return nil })
-	withTextLogger(t, nil, func(logger Logger, buf *testBuffer) {
+	withTextLogger(t, nil, func(logger Facility, buf *testBuffer) {
 		logger.Info("Empty", Marshaler("m", empty), String("something", "val"))
 		assert.Equal(t, "[I] Empty m={} something=val", buf.Stripped(), "Unexpected output from logger")
 	})

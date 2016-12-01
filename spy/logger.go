@@ -84,7 +84,7 @@ func New(options ...zap.Option) (*Logger, *Sink) {
 }
 
 // With creates a new Logger with additional fields added to the logging context.
-func (l *Logger) With(fields ...zap.Field) zap.Logger {
+func (l *Logger) With(fields ...zap.Field) zap.Facility {
 	return &Logger{
 		Meta:    l.Meta.Clone(),
 		sink:    l.sink,

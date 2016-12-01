@@ -81,9 +81,9 @@ func (c *counters) Reset(key string) {
 //
 // Per-message counts are shared between parent and child loggers, which allows
 // applications to more easily control global I/O load.
-func Sample(zl zap.Logger, tick time.Duration, first, thereafter int) zap.Logger {
+func Sample(zl zap.Facility, tick time.Duration, first, thereafter int) zap.Facility {
 	return &sampler{
-		Logger:     zl,
+		Facility:   zl,
 		tick:       tick,
 		counts:     &counters{counts: make(map[string]*atomic.Uint64)},
 		first:      uint64(first),
@@ -92,7 +92,7 @@ func Sample(zl zap.Logger, tick time.Duration, first, thereafter int) zap.Logger
 }
 
 type sampler struct {
-	zap.Logger
+	zap.Facility
 
 	tick       time.Duration
 	counts     *counters
@@ -100,9 +100,9 @@ type sampler struct {
 	thereafter uint64
 }
 
-func (s *sampler) With(fields ...zap.Field) zap.Logger {
+func (s *sampler) With(fields ...zap.Field) zap.Facility {
 	return &sampler{
-		Logger:     s.Logger.With(fields...),
+		Facility:   s.Facility.With(fields...),
 		tick:       s.tick,
 		counts:     s.counts,
 		first:      s.first,
@@ -111,7 +111,7 @@ func (s *sampler) With(fields ...zap.Field) zap.Logger {
 }
 
 func (s *sampler) Check(lvl zap.Level, msg string) *zap.CheckedMessage {
-	cm := s.Logger.Check(lvl, msg)
+	cm := s.Facility.Check(lvl, msg)
 	switch lvl {
 	case zap.DPanicLevel, zap.PanicLevel, zap.FatalLevel:
 		return cm
@@ -126,35 +126,35 @@ func (s *sampler) Check(lvl zap.Level, msg string) *zap.CheckedMessage {
 func (s *sampler) Log(lvl zap.Level, msg string, fields ...zap.Field) {
 	switch lvl {
 	case zap.PanicLevel, zap.FatalLevel:
-		s.Logger.Log(lvl, msg, fields...)
+		s.Facility.Log(lvl, msg, fields...)
 	default:
-		if cm := s.Logger.Check(lvl, msg); cm.OK() && s.sampled(msg) {
+		if cm := s.Facility.Check(lvl, msg); cm.OK() && s.sampled(msg) {
 			cm.Write(fields...)
 		}
 	}
 }
 
 func (s *sampler) Debug(msg string, fields ...zap.Field) {
-	if s.Logger.Check(zap.DebugLevel, msg) != nil && s.sampled(msg) {
-		s.Logger.Debug(msg, fields...)
+	if s.Facility.Check(zap.DebugLevel, msg) != nil && s.sampled(msg) {
+		s.Facility.Debug(msg, fields...)
 	}
 }
 
 func (s *sampler) Info(msg string, fields ...zap.Field) {
-	if s.Logger.Check(zap.InfoLevel, msg) != nil && s.sampled(msg) {
-		s.Logger.Info(msg, fields...)
+	if s.Facility.Check(zap.InfoLevel, msg) != nil && s.sampled(msg) {
+		s.Facility.Info(msg, fields...)
 	}
 }
 
 func (s *sampler) Warn(msg string, fields ...zap.Field) {
-	if s.Logger.Check(zap.WarnLevel, msg) != nil && s.sampled(msg) {
-		s.Logger.Warn(msg, fields...)
+	if s.Facility.Check(zap.WarnLevel, msg) != nil && s.sampled(msg) {
+		s.Facility.Warn(msg, fields...)
 	}
 }
 
 func (s *sampler) Error(msg string, fields ...zap.Field) {
-	if s.Logger.Check(zap.ErrorLevel, msg) != nil && s.sampled(msg) {
-		s.Logger.Error(msg, fields...)
+	if s.Facility.Check(zap.ErrorLevel, msg) != nil && s.sampled(msg) {
+		s.Facility.Error(msg, fields...)
 	}
 }
 

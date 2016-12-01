@@ -50,7 +50,7 @@ type StandardLogger interface {
 // It takes the Logger itself, and the level to use for the StandardLogger's
 // Print family of methods. If the specified Level isn't Debug, Info, Warn, or
 // Error, Standardize returns ErrInvalidLevel.
-func Standardize(l zap.Logger, printAt zap.Level) (StandardLogger, error) {
+func Standardize(l zap.Facility, printAt zap.Level) (StandardLogger, error) {
 	s := stdLogger{
 		panic: l.Panic,
 		fatal: l.Fatal,

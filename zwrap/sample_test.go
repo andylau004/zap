@@ -32,11 +32,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func WithIter(l zap.Logger, n int) zap.Logger {
+func WithIter(l zap.Facility, n int) zap.Facility {
 	return l.With(zap.Int("iter", n))
 }
 
-func fakeSampler(lvl zap.Level, tick time.Duration, first, thereafter int, development bool) (zap.Logger, *spy.Sink) {
+func fakeSampler(lvl zap.Level, tick time.Duration, first, thereafter int, development bool) (zap.Facility, *spy.Sink) {
 	base, sink := spy.New(lvl)
 	base.Development = development
 	sampler := Sample(base, tick, first, thereafter)
@@ -58,38 +58,38 @@ func buildExpectation(level zap.Level, nums ...int) []spy.Log {
 func TestSampler(t *testing.T) {
 	tests := []struct {
 		level       zap.Level
-		logFunc     func(zap.Logger, int)
+		logFunc     func(zap.Facility, int)
 		development bool
 		sampled     bool
 	}{
 		{
 			level:   zap.DebugLevel,
-			logFunc: func(sampler zap.Logger, n int) { WithIter(sampler, n).Debug("sample") },
+			logFunc: func(sampler zap.Facility, n int) { WithIter(sampler, n).Debug("sample") },
 			sampled: true,
 		},
 		{
 			level:   zap.InfoLevel,
-			logFunc: func(sampler zap.Logger, n int) { WithIter(sampler, n).Info("sample") },
+			logFunc: func(sampler zap.Facility, n int) { WithIter(sampler, n).Info("sample") },
 			sampled: true,
 		},
 		{
 			level:   zap.WarnLevel,
-			logFunc: func(sampler zap.Logger, n int) { WithIter(sampler, n).Warn("sample") },
+			logFunc: func(sampler zap.Facility, n int) { WithIter(sampler, n).Warn("sample") },
 			sampled: true,
 		},
 		{
 			level:   zap.ErrorLevel,
-			logFunc: func(sampler zap.Logger, n int) { WithIter(sampler, n).Error("sample") },
+			logFunc: func(sampler zap.Facility, n int) { WithIter(sampler, n).Error("sample") },
 			sampled: true,
 		},
 		{
 			level:   zap.DPanicLevel,
-			logFunc: func(sampler zap.Logger, n int) { WithIter(sampler, n).DPanic("sample") },
+			logFunc: func(sampler zap.Facility, n int) { WithIter(sampler, n).DPanic("sample") },
 			sampled: false,
 		},
 		{
 			level: zap.DPanicLevel,
-			logFunc: func(sampler zap.Logger, n int) {
+			logFunc: func(sampler zap.Facility, n int) {
 				assert.Panics(t, func() { WithIter(sampler, n).DPanic("sample") })
 			},
 			development: true,
@@ -97,7 +97,7 @@ func TestSampler(t *testing.T) {
 		},
 		{
 			level:   zap.ErrorLevel,
-			logFunc: func(sampler zap.Logger, n int) { WithIter(sampler, n).Log(zap.ErrorLevel, "sample") },
+			logFunc: func(sampler zap.Facility, n int) { WithIter(sampler, n).Log(zap.ErrorLevel, "sample") },
 			sampled: true,
 		},
 	}

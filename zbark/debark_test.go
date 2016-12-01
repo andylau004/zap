@@ -41,7 +41,7 @@ func newLogrus() (bark.Logger, *bytes.Buffer) {
 	return bark.NewLoggerFromLogrus(logger), buf
 }
 
-func newDebark(lvl zap.Level) (zap.Logger, *bytes.Buffer) {
+func newDebark(lvl zap.Level) (zap.Facility, *bytes.Buffer) {
 	logrus, buf := newLogrus()
 	return Debarkify(logrus, lvl), buf
 }

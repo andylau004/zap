@@ -32,7 +32,7 @@ import (
 type zapperBarkFields zwrap.KeyValueMap
 
 // Debarkify wraps bark.Logger to make it compatible with zap's JSON logger
-func Debarkify(bl bark.Logger, lvl zap.Level) zap.Logger {
+func Debarkify(bl bark.Logger, lvl zap.Level) zap.Facility {
 	if wrapper, ok := bl.(*barker); ok {
 		return wrapper.zl
 	}
@@ -79,7 +79,7 @@ func (z *zapper) Log(l zap.Level, msg string, fields ...zap.Field) {
 }
 
 // Create a child logger, and optionally add some context to that logger.
-func (z *zapper) With(fields ...zap.Field) zap.Logger {
+func (z *zapper) With(fields ...zap.Field) zap.Facility {
 	return &zapper{
 		Meta: z.Meta,
 		bl:   z.bl.WithFields(zapToBark(fields)),

@@ -40,7 +40,7 @@ package zap
 // An exception is made for FatalLevel and PanicLevel, where a CheckedMessage
 // is returned against the Tee itself. This is so that tlog.Check(PanicLevel,
 // ...).Write(...) is equivalent to tlog.Panic(...) (likewise for FatalLevel).
-func Tee(logs ...Logger) Logger {
+func Tee(logs ...Facility) Facility {
 	switch len(logs) {
 	case 0:
 		return nil
@@ -51,7 +51,7 @@ func Tee(logs ...Logger) Logger {
 	}
 }
 
-type multiLogger []Logger
+type multiLogger []Facility
 
 func (ml multiLogger) Log(lvl Level, msg string, fields ...Field) {
 	ml.log(lvl, msg, fields)
@@ -94,7 +94,7 @@ func (ml multiLogger) DPanic(msg string, fields ...Field) {
 	// TODO: Implement development/DPanic?
 }
 
-func (ml multiLogger) With(fields ...Field) Logger {
+func (ml multiLogger) With(fields ...Field) Facility {
 	clone := make(multiLogger, len(ml))
 	for i := range ml {
 		clone[i] = ml[i].With(fields...)

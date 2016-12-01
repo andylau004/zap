@@ -34,7 +34,7 @@ var _cmPool = sync.Pool{
 // especially performance-sensitive applications to avoid allocations for disabled
 // or heavily sampled log levels.
 type CheckedMessage struct {
-	logger      Logger
+	logger      Facility
 	safeToWrite bool
 	lvl         Level
 	msg         string
@@ -48,7 +48,7 @@ type CheckedMessage struct {
 
 // NewCheckedMessage constructs a CheckedMessage. It's only intended for use by
 // wrapper libraries, and shouldn't be necessary in application code.
-func NewCheckedMessage(logger Logger, lvl Level, msg string) *CheckedMessage {
+func NewCheckedMessage(logger Facility, lvl Level, msg string) *CheckedMessage {
 	m := _cmPool.Get().(*CheckedMessage)
 	m.safeToWrite, m.logger, m.lvl, m.msg = true, logger, lvl, msg
 	return m

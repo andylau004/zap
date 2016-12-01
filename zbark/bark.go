@@ -31,7 +31,7 @@ import (
 
 // Barkify wraps zap's JSON logger to make it compatible with the bark.Logger
 // interface.
-func Barkify(l zap.Logger) bark.Logger {
+func Barkify(l zap.Facility) bark.Logger {
 	if wrapper, ok := l.(*zapper); ok {
 		return wrapper.bl
 	}
@@ -42,7 +42,7 @@ func Barkify(l zap.Logger) bark.Logger {
 }
 
 type barker struct {
-	zl     zap.Logger
+	zl     zap.Facility
 	fields bark.Fields
 }
 
@@ -125,7 +125,7 @@ func (l *barker) addBarkFields(fs bark.Fields) bark.Fields {
 	return newFields
 }
 
-func (l *barker) addZapFields(fs bark.Fields) zap.Logger {
+func (l *barker) addZapFields(fs bark.Fields) zap.Facility {
 	zfs := make([]zap.Field, 0, len(fs))
 	for key, val := range fs {
 		switch v := val.(type) {
