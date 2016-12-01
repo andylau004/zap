@@ -22,23 +22,23 @@ package zap
 
 // Option is used to set options for the logger.
 type Option interface {
-	apply(*Meta)
+	apply(*Logger)
 }
 
 // optionFunc wraps a func so it satisfies the Option interface.
-type optionFunc func(*Meta)
+type optionFunc func(*Logger)
 
-func (f optionFunc) apply(m *Meta) {
+func (f optionFunc) apply(m *Logger) {
 	f(m)
 }
 
 // This allows any Level to be used as an option.
-func (l Level) apply(m *Meta)         { m.LevelEnabler = l }
-func (lvl AtomicLevel) apply(m *Meta) { m.LevelEnabler = lvl }
+func (l Level) apply(m *Logger)         { m.LevelEnabler = l }
+func (lvl AtomicLevel) apply(m *Logger) { m.LevelEnabler = lvl }
 
 // Fields sets the initial fields for the logger.
 func Fields(fields ...Field) Option {
-	return optionFunc(func(m *Meta) {
+	return optionFunc(func(m *Logger) {
 		addFields(m.Encoder, fields)
 	})
 }
@@ -47,7 +47,7 @@ func Fields(fields ...Field) Option {
 // is automatically wrapped with a mutex, so it need not be safe for concurrent
 // use.
 func Output(w WriteSyncer) Option {
-	return optionFunc(func(m *Meta) {
+	return optionFunc(func(m *Logger) {
 		m.Output = newLockedWriteSyncer(w)
 	})
 }
@@ -56,7 +56,7 @@ func Output(w WriteSyncer) Option {
 // supplied WriteSyncer is automatically wrapped with a mutex, so it need not be
 // safe for concurrent use.
 func ErrorOutput(w WriteSyncer) Option {
-	return optionFunc(func(m *Meta) {
+	return optionFunc(func(m *Logger) {
 		m.ErrorOutput = newLockedWriteSyncer(w)
 	})
 }
@@ -64,7 +64,7 @@ func ErrorOutput(w WriteSyncer) Option {
 // Development puts the logger in development mode, which alters the behavior
 // of the DPanic method.
 func Development() Option {
-	return optionFunc(func(m *Meta) {
+	return optionFunc(func(m *Logger) {
 		m.Development = true
 	})
 }

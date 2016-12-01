@@ -44,7 +44,7 @@ var (
 type Hook func(*Entry) error
 
 // apply implements the Option interface.
-func (h Hook) apply(m *Meta) {
+func (h Hook) apply(m *Logger) {
 	m.Hooks = append(m.Hooks, h)
 }
 

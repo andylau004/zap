@@ -37,13 +37,13 @@ func Debarkify(bl bark.Logger, lvl zap.Level) zap.Facility {
 		return wrapper.zl
 	}
 	return &zapper{
-		Meta: zap.MakeMeta(nil, lvl),
-		bl:   bl,
+		Logger: zap.MakeLogger(nil, lvl),
+		bl:     bl,
 	}
 }
 
 type zapper struct {
-	zap.Meta
+	zap.Logger
 	bl bark.Logger
 }
 
@@ -53,7 +53,7 @@ func (z *zapper) Log(l zap.Level, msg string, fields ...zap.Field) {
 	switch l {
 	case zap.PanicLevel, zap.FatalLevel:
 	default:
-		if !z.Meta.Enabled(l) {
+		if !z.Logger.Enabled(l) {
 			return
 		}
 	}
@@ -81,13 +81,13 @@ func (z *zapper) Log(l zap.Level, msg string, fields ...zap.Field) {
 // Create a child logger, and optionally add some context to that logger.
 func (z *zapper) With(fields ...zap.Field) zap.Facility {
 	return &zapper{
-		Meta: z.Meta,
-		bl:   z.bl.WithFields(zapToBark(fields)),
+		Logger: z.Logger,
+		bl:     z.bl.WithFields(zapToBark(fields)),
 	}
 }
 
 func (z *zapper) Check(l zap.Level, msg string) *zap.CheckedMessage {
-	return z.Meta.Check(z, l, msg)
+	return z.Logger.Check(z, l, msg)
 }
 
 func (z *zapper) Debug(msg string, fields ...zap.Field) {

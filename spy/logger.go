@@ -64,7 +64,7 @@ func (s *Sink) Logs() []Log {
 // Logger satisfies zap.Logger, but makes testing convenient.
 type Logger struct {
 	sync.Mutex
-	zap.Meta
+	zap.Logger
 
 	sink    *Sink
 	context []zap.Field
@@ -78,15 +78,15 @@ type Logger struct {
 func New(options ...zap.Option) (*Logger, *Sink) {
 	s := &Sink{}
 	return &Logger{
-		Meta: zap.MakeMeta(zap.NewJSONEncoder(zap.NoTime()), options...),
-		sink: s,
+		Logger: zap.MakeLogger(zap.NewJSONEncoder(zap.NoTime()), options...),
+		sink:   s,
 	}, s
 }
 
 // With creates a new Logger with additional fields added to the logging context.
 func (l *Logger) With(fields ...zap.Field) zap.Facility {
 	return &Logger{
-		Meta:    l.Meta.Clone(),
+		Logger:  l.Logger.Clone(),
 		sink:    l.sink,
 		context: append(l.context, fields...),
 	}
@@ -94,7 +94,7 @@ func (l *Logger) With(fields ...zap.Field) zap.Facility {
 
 // Check returns a CheckedMessage if logging a particular message would succeed.
 func (l *Logger) Check(lvl zap.Level, msg string) *zap.CheckedMessage {
-	return l.Meta.Check(l, lvl, msg)
+	return l.Logger.Check(l, lvl, msg)
 }
 
 // Log writes a message at the specified level.
@@ -143,7 +143,7 @@ func (l *Logger) DPanic(msg string, fields ...zap.Field) {
 }
 
 func (l *Logger) log(lvl zap.Level, msg string, fields []zap.Field) {
-	if l.Meta.Enabled(lvl) {
+	if l.Logger.Enabled(lvl) {
 		l.sink.WriteLog(lvl, msg, l.allFields(fields))
 	}
 }

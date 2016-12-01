@@ -38,7 +38,7 @@ var _entryPool = sync.Pool{
 //
 // Note that while the level-related fields and methods are safe for concurrent
 // use, the remaining fields are not.
-type Meta struct {
+type Logger struct {
 	LevelEnabler
 
 	Development bool
@@ -51,8 +51,8 @@ type Meta struct {
 // MakeMeta returns a new meta struct with sensible defaults: logging at
 // InfoLevel, development mode off, and writing to standard error and standard
 // out.
-func MakeMeta(enc Encoder, options ...Option) Meta {
-	m := Meta{
+func MakeLogger(enc Encoder, options ...Option) Logger {
+	m := Logger{
 		Encoder:      enc,
 		Output:       newLockedWriteSyncer(os.Stdout),
 		ErrorOutput:  newLockedWriteSyncer(os.Stderr),
@@ -66,14 +66,14 @@ func MakeMeta(enc Encoder, options ...Option) Meta {
 
 // Clone creates a copy of the meta struct. It deep-copies the encoder, but not
 // the hooks (since they rarely change).
-func (m Meta) Clone() Meta {
+func (m Logger) Clone() Logger {
 	m.Encoder = m.Encoder.Clone()
 	return m
 }
 
 // Check returns a CheckedMessage logging the given message is Enabled, nil
 // otherwise.
-func (m Meta) Check(log Facility, lvl Level, msg string) *CheckedMessage {
+func (m Logger) Check(log Facility, lvl Level, msg string) *CheckedMessage {
 	switch lvl {
 	case PanicLevel, FatalLevel:
 		// Panic and Fatal should always cause a panic/exit, even if the level
@@ -90,14 +90,14 @@ func (m Meta) Check(log Facility, lvl Level, msg string) *CheckedMessage {
 // InternalError prints an internal error message to the configured
 // ErrorOutput. This method should only be used to report internal logger
 // problems and should not be used to report user-caused problems.
-func (m Meta) InternalError(cause string, err error) {
+func (m Logger) InternalError(cause string, err error) {
 	fmt.Fprintf(m.ErrorOutput, "%v %s error: %v\n", time.Now().UTC(), cause, err)
 	m.ErrorOutput.Sync()
 }
 
 // Encode runs any Hook functions, returning a possibly modified
 // time, message, and level.
-func (m Meta) Encode(t time.Time, lvl Level, msg string, fields []Field) (string, Encoder) {
+func (m Logger) Encode(t time.Time, lvl Level, msg string, fields []Field) (string, Encoder) {
 	enc := m.Encoder.Clone()
 	addFields(enc, fields)
 	if len(m.Hooks) == 0 {

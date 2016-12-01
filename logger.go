@@ -58,7 +58,7 @@ type Facility interface {
 	Fatal(string, ...Field)
 }
 
-type logger struct{ Meta }
+type logger struct{ Logger }
 
 // New constructs a logger that uses the provided encoder. By default, the
 // logger will write Info logs or higher to standard out. Any errors during logging
@@ -68,20 +68,20 @@ type logger struct{ Meta }
 // that should be added as context, and many other behaviors.
 func New(enc Encoder, options ...Option) Facility {
 	return &logger{
-		Meta: MakeMeta(enc, options...),
+		Logger: MakeLogger(enc, options...),
 	}
 }
 
 func (log *logger) With(fields ...Field) Facility {
 	clone := &logger{
-		Meta: log.Meta.Clone(),
+		Logger: log.Logger.Clone(),
 	}
 	addFields(clone.Encoder, fields)
 	return clone
 }
 
 func (log *logger) Check(lvl Level, msg string) *CheckedMessage {
-	return log.Meta.Check(log, lvl, msg)
+	return log.Logger.Check(log, lvl, msg)
 }
 
 func (log *logger) Log(lvl Level, msg string, fields ...Field) {
@@ -122,7 +122,7 @@ func (log *logger) Fatal(msg string, fields ...Field) {
 }
 
 func (log *logger) log(lvl Level, msg string, fields []Field) {
-	if !log.Meta.Enabled(lvl) {
+	if !log.Logger.Enabled(lvl) {
 		return
 	}
 
