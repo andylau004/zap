@@ -20,57 +20,170 @@
 
 package zap
 
-import "os"
+import (
+	"fmt"
+	"os"
+	"time"
+)
 
-// For tests.
-var _exit = os.Exit
+// Logger is the logger implementation.
+//
+// TODO: note any concurrency concerns.
+type Logger struct {
+	LevelEnabler
+	Facility
 
-type Facility interface {
-	With(...Field) Facility
-	Enabled(Entry) bool
-	Log(Entry, ...Field)
+	Development bool
+	Hooks       []Hook
+	ErrorOutput WriteSyncer
 }
 
-type ioFacility struct {
-	Logger
-	Encoder
-	Output WriteSyncer
+// MakeMeta returns a new meta struct with sensible defaults: logging at
+// InfoLevel, development mode off, and writing to standard error and standard
+// out.
+func New(fac Facility, options ...Option) *Logger {
+	log := &Logger{
+		Facility:     fac,
+		ErrorOutput:  newLockedWriteSyncer(os.Stderr),
+		LevelEnabler: InfoLevel,
+	}
+	for _, opt := range options {
+		opt.apply(log)
+	}
+	return log
 }
 
-func newIOFacility(log Logger, enc Encode, out WriteSyncer) *ioFacility {
-	if out == nil {
-		out = newLockedWriteSyncer(os.Stdout)
+// InternalError prints an internal error message to the configured
+// ErrorOutput. This method should only be used to report internal logger
+// problems and should not be used to report user-caused problems.
+func (log *Logger) InternalError(cause string, err error) {
+	fmt.Fprintf(log.ErrorOutput, "%v %s error: %v\n", time.Now().UTC(), cause, err)
+	log.ErrorOutput.Sync()
+}
+
+// Encode runs any Hook functions, returning a possibly modified
+// time, message, and level.
+func (log *Logger) Encode(enc Encoder, ent Entry, fields []Field) (string, Encoder) {
+	clone := &Logger{
+		LevelEnabler: log.LevelEnabler,
+		Facility:     log.Facility,
+		Development:  log.Development,
+		Hooks:        log.Hooks,
+		ErrorOutput:  log.ErrorOutput,
 	}
-	return &ioFacility{
-		Logger:  log,
-		Encoder: enc,
-		Output:  out,
+	entry.enc = enc.Clone()
+	addFields(entry.enc, fields)
+	for _, hook := range log.Hooks {
+		if err := hook(&entry); err != nil {
+			log.InternalError("hook", err)
+		}
+	}
+	return entry.Message, entry.enc
+}
+
+// With creates a new child *Logger with the given fields added to all child
+// log sites.
+func (log *Logger) With(fields ...Field) *Logger {
+	clone := &Logger{
+		Logger: log.Logger.Clone(),
+	}
+	addFields(clone.Encoder, fields)
+	addFields(clone.Encoder, fields)
+	return clone
+}
+
+// Check returns a CheckedMessage logging the given message is Enabled, nil
+// otherwise.
+func (log *Logger) Check(lvl Level, msg string) *CheckedMessage {
+	switch lvl {
+	case PanicLevel, FatalLevel:
+		// Panic and Fatal should always cause a panic/exit, even if the level
+		// is disabled.
+		break
+	case DPanicLevel:
+		if log.Development {
+			break
+		}
+		fallthrough
+	default:
+		if !log.Enabled(lvl) || !log.Facility.Enabled(Entry{
+			Level:   lvl,
+			Message: msg,
+		}) {
+			return nil
+		}
+	}
+	return NewCheckedMessage(log.Facility, Entry{
+		Time:    time.Now().UTC(),
+		Level:   lvl,
+		Message: msg,
+	})
+}
+
+// Debug logs at DebugLevel.
+func (log *Logger) Debug(msg string, fields ...Field) {
+	log.Facility.Log(Entry{
+		Time:    time.Now().UTC(),
+		Level:   DebugLevel,
+		Message: msg,
+	}, fields...)
+}
+
+// Info logs at InfoLevel.
+func (log *Logger) Info(msg string, fields ...Field) {
+	log.Facility.Log(Entry{
+		Time:    time.Now().UTC(),
+		Level:   InfoLevel,
+		Message: msg,
+	}, fields...)
+}
+
+// Warn logs at WarnLevel.
+func (log *Logger) Warn(msg string, fields ...Field) {
+	log.Facility.Log(Entry{
+		Time:    time.Now().UTC(),
+		Level:   WarnLevel,
+		Message: msg,
+	}, fields...)
+}
+
+// Error logs at ErrorLevel.
+func (log *Logger) Error(msg string, fields ...Field) {
+	log.Facility.Log(Entry{
+		Time:    time.Now().UTC(),
+		Level:   ErrorLevel,
+		Message: msg,
+	}, fields...)
+}
+
+// DPanic logs at DPanicLevel and then calls panic(msg) if in Development mode.
+func (log *Logger) DPanic(msg string, fields ...Field) {
+	log.Facility.Log(Entry{
+		Time:    time.Now().UTC(),
+		Level:   DPanicLevel,
+		Message: msg,
+	}, fields...)
+	if log.Development {
+		panic(msg)
 	}
 }
 
-func (iof *ioFacility) With(...Field) Facility {
-	enc := iof.enc.Clone()
-	addFields(enc, fields)
-	return &ioFacility{
-		Logger:  iof.log,
-		Encoder: enc,
-		Output:  iof.out,
-	}
+// Panic logs at PanicLevel and then calls panic(msg).
+func (log *Logger) Panic(msg string, fields ...Field) {
+	log.Facility.Log(Entry{
+		Time:    time.Now().UTC(),
+		Level:   PanicLevel,
+		Message: msg,
+	}, fields...)
+	panic(msg)
 }
 
-func (*ioFacility) Enabled(Entry) bool { return true }
-
-func (iof *ioFacility) Log(ent Entry, fields ...Field) {
-	if !iof.Logger.Enabled(ent.Level) {
-		return
-	}
-	msg, enc := log.Encode(ent.Time, ent.Level, ent.Message, fields)
-	if err := enc.WriteEntry(iof.Output, msg, ent.Level, ent.Time); err != nil {
-		log.InternalError("encoder", err)
-	}
-	enc.Free()
-	if ent.Level > ErrorLevel {
-		// Sync on Panic and Fatal, since they may crash the program.
-		iof.Output.Sync()
-	}
+// Fatal logs at FataLevel and then calls os.Exit(1).
+func (log *Logger) Fatal(msg string, fields ...Field) {
+	log.Facility.Log(Entry{
+		Time:    time.Now().UTC(),
+		Level:   FatalLevel,
+		Message: msg,
+	}, fields...)
+	_exit(1)
 }
