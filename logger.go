@@ -20,121 +20,57 @@
 
 package zap
 
-import (
-	"os"
-	"time"
-)
+import "os"
 
 // For tests.
 var _exit = os.Exit
 
-// A Logger enables leveled, structured logging. All methods are safe for
-// concurrent use.
 type Facility interface {
-	// Create a child logger, and optionally add some context to that logger.
 	With(...Field) Facility
-
-	// Check returns a CheckedMessage if logging a message at the specified level
-	// is enabled. It's a completely optional optimization; in high-performance
-	// applications, Check can help avoid allocating a slice to hold fields.
-	//
-	// See CheckedMessage for an example.
-	Check(Level, string) *CheckedMessage
-
-	// Log a message at the given level. Messages include any context that's
-	// accumulated on the logger, as well as any fields added at the log site.
-	//
-	// Calling Panic should panic() and calling Fatal should terminate the
-	// process, but calling Log(PanicLevel, ...) or Log(FatalLevel, ...) should
-	// not. It may not be possible for compatibility wrappers to comply with
-	// this last part (e.g. the bark wrapper).
-	Log(Level, string, ...Field)
-	Debug(string, ...Field)
-	Info(string, ...Field)
-	Warn(string, ...Field)
-	Error(string, ...Field)
-	DPanic(string, ...Field)
-	Panic(string, ...Field)
-	Fatal(string, ...Field)
+	Enabled(Entry) bool
+	Log(Entry, ...Field)
 }
 
-type logger struct{ Logger }
+type ioFacility struct {
+	Logger
+	Encoder
+	Output WriteSyncer
+}
 
-// New constructs a logger that uses the provided encoder. By default, the
-// logger will write Info logs or higher to standard out. Any errors during logging
-// will be written to standard error.
-//
-// Options can change the log level, the output location, the initial fields
-// that should be added as context, and many other behaviors.
-func New(enc Encoder, options ...Option) Facility {
-	return &logger{
-		Logger: MakeLogger(enc, options...),
+func newIOFacility(log Logger, enc Encode, out WriteSyncer) *ioFacility {
+	if out == nil {
+		out = newLockedWriteSyncer(os.Stdout)
+	}
+	return &ioFacility{
+		Logger:  log,
+		Encoder: enc,
+		Output:  out,
 	}
 }
 
-func (log *logger) With(fields ...Field) Facility {
-	clone := &logger{
-		Logger: log.Logger.Clone(),
-	}
-	addFields(clone.Encoder, fields)
-	return clone
-}
-
-func (log *logger) Check(lvl Level, msg string) *CheckedMessage {
-	return log.Logger.Check(log, lvl, msg)
-}
-
-func (log *logger) Log(lvl Level, msg string, fields ...Field) {
-	log.log(lvl, msg, fields)
-}
-
-func (log *logger) Debug(msg string, fields ...Field) {
-	log.log(DebugLevel, msg, fields)
-}
-
-func (log *logger) Info(msg string, fields ...Field) {
-	log.log(InfoLevel, msg, fields)
-}
-
-func (log *logger) Warn(msg string, fields ...Field) {
-	log.log(WarnLevel, msg, fields)
-}
-
-func (log *logger) Error(msg string, fields ...Field) {
-	log.log(ErrorLevel, msg, fields)
-}
-
-func (log *logger) DPanic(msg string, fields ...Field) {
-	log.log(DPanicLevel, msg, fields)
-	if log.Development {
-		panic(msg)
+func (iof *ioFacility) With(...Field) Facility {
+	enc := iof.enc.Clone()
+	addFields(enc, fields)
+	return &ioFacility{
+		Logger:  iof.log,
+		Encoder: enc,
+		Output:  iof.out,
 	}
 }
 
-func (log *logger) Panic(msg string, fields ...Field) {
-	log.log(PanicLevel, msg, fields)
-	panic(msg)
-}
+func (*ioFacility) Enabled(Entry) bool { return true }
 
-func (log *logger) Fatal(msg string, fields ...Field) {
-	log.log(FatalLevel, msg, fields)
-	_exit(1)
-}
-
-func (log *logger) log(lvl Level, msg string, fields []Field) {
-	if !log.Logger.Enabled(lvl) {
+func (iof *ioFacility) Log(ent Entry, fields ...Field) {
+	if !iof.Logger.Enabled(ent.Level) {
 		return
 	}
-
-	t := time.Now().UTC()
-	msg, enc := log.Encode(t, lvl, msg, fields)
-	if err := enc.WriteEntry(log.Output, msg, lvl, t); err != nil {
+	msg, enc := log.Encode(ent.Time, ent.Level, ent.Message, fields)
+	if err := enc.WriteEntry(iof.Output, msg, ent.Level, ent.Time); err != nil {
 		log.InternalError("encoder", err)
 	}
 	enc.Free()
-
-	if lvl > ErrorLevel {
+	if ent.Level > ErrorLevel {
 		// Sync on Panic and Fatal, since they may crash the program.
-		log.Output.Sync()
+		iof.Output.Sync()
 	}
 }
