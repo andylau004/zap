@@ -22,6 +22,7 @@ package zap
 
 import (
 	"os"
+	"time"
 )
 
 // For tests.
@@ -128,21 +129,12 @@ func (log *logger) log(lvl Level, msg string, fields []Field) {
 		return
 	}
 
-	temp := log.Encoder.Clone()
-	addFields(temp, fields)
-
-	entry := newEntry(lvl, msg, temp)
-	for _, hook := range log.Hooks {
-		if err := hook(entry); err != nil {
-			log.InternalError("hook", err)
-		}
-	}
-
-	if err := temp.WriteEntry(log.Output, entry.Message, entry.Level, entry.Time); err != nil {
+	t := time.Now().UTC()
+	msg, enc := log.Encode(t, lvl, msg, fields)
+	if err := enc.WriteEntry(log.Output, msg, lvl, t); err != nil {
 		log.InternalError("encoder", err)
 	}
-	temp.Free()
-	entry.free()
+	enc.Free()
 
 	if lvl > ErrorLevel {
 		// Sync on Panic and Fatal, since they may crash the program.

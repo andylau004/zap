@@ -23,7 +23,15 @@ package zap
 import (
 	"fmt"
 	"os"
+	"sync"
+	"time"
 )
+
+var _entryPool = sync.Pool{
+	New: func() interface{} {
+		return &Entry{}
+	},
+}
 
 // Meta is implementation-agnostic state management for Loggers. Most Logger
 // implementations can reduce the required boilerplate by embedding a Meta.
@@ -83,6 +91,28 @@ func (m Meta) Check(log Logger, lvl Level, msg string) *CheckedMessage {
 // ErrorOutput. This method should only be used to report internal logger
 // problems and should not be used to report user-caused problems.
 func (m Meta) InternalError(cause string, err error) {
-	fmt.Fprintf(m.ErrorOutput, "%v %s error: %v\n", _timeNow().UTC(), cause, err)
+	fmt.Fprintf(m.ErrorOutput, "%v %s error: %v\n", time.Now().UTC(), cause, err)
 	m.ErrorOutput.Sync()
+}
+
+// Encode runs any Hook functions, returning a possibly modified
+// time, message, and level.
+func (m Meta) Encode(t time.Time, lvl Level, msg string, fields []Field) (string, Encoder) {
+	enc := m.Encoder.Clone()
+	addFields(enc, fields)
+	if len(m.Hooks) == 0 {
+		return msg, enc
+	}
+	entry := _entryPool.Get().(*Entry)
+	entry.Level = lvl
+	entry.Message = msg
+	entry.Time = t
+	entry.enc = enc
+	for _, hook := range m.Hooks {
+		if err := hook(entry); err != nil {
+			m.InternalError("hook", err)
+		}
+	}
+	_entryPool.Put(entry)
+	return entry.Message, entry.enc
 }
