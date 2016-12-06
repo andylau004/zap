@@ -29,10 +29,25 @@ type Entry struct {
 	Level   Level
 	Time    time.Time
 	Message string
-	enc     Encoder
+	fac     Facility
 }
 
-// Fields returns a mutable reference to the entry's accumulated context.
-func (e Entry) Fields() KeyValue {
-	return e.enc
+// XXX compat with *CheckedMessage, drop?
+func (e *Entry) OK() bool {
+	return e != nil
+}
+
+// Write writes the entry any logger reference stored. This only works if the
+// Entry was returned by Logger.Check.
+func (e *Entry) Write(fields ...Field) {
+	if e != nil && e.fac != nil {
+		e.fac.Log(*e, fields...)
+	}
+}
+
+// AddFields returns a mutable reference to the entry's accumulated context.
+func (e *Entry) AddFields(fields ...Field) {
+	if e.fac != nil {
+		e.fac = e.fac.With(fields...)
+	}
 }

@@ -65,10 +65,12 @@ func withJSONLogger(t testing.TB, opts []Option, f func(*Logger, *testBuffer)) {
 	sink := &testBuffer{}
 	errSink := &testBuffer{}
 
-	allOpts := make([]Option, 0, 3+len(opts))
-	allOpts = append(allOpts, DebugLevel, Output(sink), ErrorOutput(errSink))
+	allOpts := make([]Option, 0, 2+len(opts))
+	allOpts = append(allOpts, DebugLevel, ErrorOutput(errSink))
 	allOpts = append(allOpts, opts...)
-	logger := New(newJSONEncoder(NoTime()), allOpts...)
+	logger := New(
+		WriterFacility(newJSONEncoder(NoTime()), sink),
+		allOpts...)
 
 	f(logger, sink)
 	assert.Empty(t, errSink.String(), "Expected error sink to be empty.")

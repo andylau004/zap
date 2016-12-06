@@ -39,7 +39,7 @@ func (lvl AtomicLevel) apply(log *Logger) { log.LevelEnabler = lvl }
 // Fields sets the initial fields for the logger.
 func Fields(fields ...Field) Option {
 	return optionFunc(func(log *Logger) {
-		addFields(log.Encoder, fields)
+		log.Facility = log.Facility.With(fields...)
 	})
 }
 

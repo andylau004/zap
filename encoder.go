@@ -44,5 +44,7 @@ type Encoder interface {
 	Free()
 	// Write the supplied message, level, and timestamp to the writer, along with
 	// any accumulated context.
+	//
+	// TODO: switch to func(io.Writer, Entry) error
 	WriteEntry(io.Writer, string, Level, time.Time) error
 }

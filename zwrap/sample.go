@@ -94,16 +94,17 @@ func (s *sampler) With(fields ...zap.Field) zap.Facility {
 func (s *sampler) Enabled(ent Entry) bool {
 	n := s.counts.Inc(ent.Message)
 	if n <= s.first {
-		return true
+		return s.Facility.Enabled(ent)
 	}
 	if n == s.first+1 {
 		time.AfterFunc(s.tick, func() { s.counts.Reset(ent.Message) })
 	}
-	return (n-s.first)%s.thereafter == 0
+	if (n-s.first)%s.thereafter == 0 {
+		return s.Facility.Enabled(ent)
+	}
+	return false
 }
 
 func (s *sampler) Log(ent Entry, fields ...zap.Field) {
-	if s.Enabled(ent) {
-		s.Facility.Log(lvl, msg, fields...)
-	}
+	s.Facility.Log(ent, fields...)
 }

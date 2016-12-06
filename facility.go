@@ -20,53 +20,63 @@
 
 package zap
 
-import "os"
+import (
+	"io"
+	"os"
+)
 
-// For tests.
-var _exit = os.Exit
-
+// Facility is a destination for log entries. It can have pervasive fields
+// added with With(). Log should not be called if Enabled returns false.
 type Facility interface {
 	With(...Field) Facility
 	Enabled(Entry) bool
 	Log(Entry, ...Field)
+	// XXX idea on how we could restore internal enoding error repuorting:
+	//     SetErrorOutput(ws WriteSyncer)
+}
+
+// WriterFacility creates a facility that writes logs to an io.Writer. By
+// default, if w is nil, os.Stdout is used.
+func WriterFacility(enc Encoder, w io.Writer) Facility {
+	if w == nil {
+		w = os.Stdout
+	}
+	return newIOFacility(enc, AddSync(w))
 }
 
 type ioFacility struct {
-	Logger
 	Encoder
 	Output WriteSyncer
 }
 
-func newIOFacility(log Logger, enc Encode, out WriteSyncer) *ioFacility {
+func newIOFacility(enc Encoder, out WriteSyncer) *ioFacility {
 	if out == nil {
 		out = newLockedWriteSyncer(os.Stdout)
 	}
 	return &ioFacility{
-		Logger:  log,
 		Encoder: enc,
 		Output:  out,
 	}
 }
 
-func (iof *ioFacility) With(...Field) Facility {
-	enc := iof.enc.Clone()
+func (iof *ioFacility) With(fields ...Field) Facility {
+	enc := iof.Encoder.Clone()
 	addFields(enc, fields)
 	return &ioFacility{
-		Logger:  iof.log,
 		Encoder: enc,
-		Output:  iof.out,
+		Output:  iof.Output,
 	}
 }
 
 func (*ioFacility) Enabled(Entry) bool { return true }
 
 func (iof *ioFacility) Log(ent Entry, fields ...Field) {
-	if !iof.Logger.Enabled(ent.Level) {
-		return
-	}
-	msg, enc := log.Encode(ent.Time, ent.Level, ent.Message, fields)
-	if err := enc.WriteEntry(iof.Output, msg, ent.Level, ent.Time); err != nil {
-		log.InternalError("encoder", err)
+	enc := iof.Encoder.Clone()
+	addFields(enc, fields)
+
+	if err := enc.WriteEntry(iof.Output, ent.Message, ent.Level, ent.Time); err != nil {
+		// TODO: restore internal error reporting
+		// log.InternalError("encoder", err)
 	}
 	enc.Free()
 	if ent.Level > ErrorLevel {

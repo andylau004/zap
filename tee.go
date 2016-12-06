@@ -44,15 +44,15 @@ func (mf multiFacility) With(fields ...Field) Facility {
 	return clone
 }
 
-func (mf multiFacility) Log(ent Entry, fileds ...Field) {
+func (mf multiFacility) Log(ent Entry, fields ...Field) {
 	for _, log := range mf {
 		log.Log(ent, fields...)
 	}
 }
 
 func (mf multiFacility) Enabled(ent Entry) bool {
-	for _, log := range mf {
-		if mf.Enabled(ent) {
+	for i := range mf {
+		if mf[i].Enabled(ent) {
 			return true
 		}
 	}
