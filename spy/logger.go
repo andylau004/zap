@@ -61,13 +61,26 @@ func (s *Sink) Logs() []Log {
 	return logs
 }
 
-// Logger satisfies zap.Logger, but makes testing convenient.
-type Logger struct {
+type spyFacility struct {
 	sync.Mutex
-	zap.Logger
-
 	sink    *Sink
 	context []zap.Field
+}
+
+func (sf *spyFacility) With(fields ...zap.Field) zap.Facility {
+	return &spyFacility{
+		sink:    sf.sink,
+		context: append(sf.context, fields...),
+	}
+}
+
+func (*spyFacility) Enabled(zap.Entry) bool { return true }
+
+func (sf *spyFacility) Log(ent zap.Entry, fields ...zap.Field) {
+	all := make([]zap.Field, 0, len(fields)+len(sf.context))
+	all = append(all, sf.context...)
+	all = append(all, fields...)
+	sf.sink.WriteLog(ent.Level, ent.Message, all)
 }
 
 // New constructs a spy logger that collects spy.Log records to a Sink. It
@@ -75,82 +88,7 @@ type Logger struct {
 //
 // Options can change things like log level and initial fields, but any output
 // related options will not be honored.
-func New(options ...zap.Option) (*Logger, *Sink) {
+func New(options ...zap.Option) (*zap.Logger, *Sink) {
 	s := &Sink{}
-	return &Logger{
-		Logger: zap.MakeLogger(zap.NewJSONEncoder(zap.NoTime()), options...),
-		sink:   s,
-	}, s
-}
-
-// With creates a new Logger with additional fields added to the logging context.
-func (l *Logger) With(fields ...zap.Field) zap.Facility {
-	return &Logger{
-		Logger:  l.Logger.Clone(),
-		sink:    l.sink,
-		context: append(l.context, fields...),
-	}
-}
-
-// Check returns a CheckedMessage if logging a particular message would succeed.
-func (l *Logger) Check(lvl zap.Level, msg string) *zap.CheckedMessage {
-	return l.Logger.Check(l, lvl, msg)
-}
-
-// Log writes a message at the specified level.
-func (l *Logger) Log(lvl zap.Level, msg string, fields ...zap.Field) {
-	l.log(lvl, msg, fields)
-}
-
-// Debug logs at the Debug level.
-func (l *Logger) Debug(msg string, fields ...zap.Field) {
-	l.log(zap.DebugLevel, msg, fields)
-}
-
-// Info logs at the Info level.
-func (l *Logger) Info(msg string, fields ...zap.Field) {
-	l.log(zap.InfoLevel, msg, fields)
-}
-
-// Warn logs at the Warn level.
-func (l *Logger) Warn(msg string, fields ...zap.Field) {
-	l.log(zap.WarnLevel, msg, fields)
-}
-
-// Error logs at the Error level.
-func (l *Logger) Error(msg string, fields ...zap.Field) {
-	l.log(zap.ErrorLevel, msg, fields)
-}
-
-// Panic logs at the Panic level. Note that the spy Logger doesn't actually
-// panic.
-func (l *Logger) Panic(msg string, fields ...zap.Field) {
-	l.log(zap.PanicLevel, msg, fields)
-}
-
-// Fatal logs at the Fatal level. Note that the spy logger doesn't actuall call
-// os.Exit.
-func (l *Logger) Fatal(msg string, fields ...zap.Field) {
-	l.log(zap.FatalLevel, msg, fields)
-}
-
-// DPanic logs at the DPanic level, and panics if the development flag is set.
-func (l *Logger) DPanic(msg string, fields ...zap.Field) {
-	l.log(zap.DPanicLevel, msg, fields)
-	if l.Development {
-		panic(msg)
-	}
-}
-
-func (l *Logger) log(lvl zap.Level, msg string, fields []zap.Field) {
-	if l.Logger.Enabled(lvl) {
-		l.sink.WriteLog(lvl, msg, l.allFields(fields))
-	}
-}
-
-func (l *Logger) allFields(added []zap.Field) []zap.Field {
-	all := make([]zap.Field, 0, len(added)+len(l.context))
-	all = append(all, l.context...)
-	all = append(all, added...)
-	return all
+	return zap.New(&spyFacility{sink: s}, options...), s
 }
